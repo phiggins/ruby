@@ -512,107 +512,68 @@ end
 #   set2.each { |obj| } # => raises ArgumentError: comparison of Fixnum with String failed
 #   
 class SortedSet < Set
-  @@setup = false
-
-  class << self
-    def [](*ary)        # :nodoc:
-      new(ary)
-    end
-
-    def setup        # :nodoc:
-      @@setup and return
-
-      module_eval {
-        # a hack to shut up warning
-        alias old_init initialize
-        remove_method :old_init
-      }
-      begin
-        require 'rbtree'
-
-        module_eval %{
-          def initialize(*args, &block)
-            @hash = RBTree.new
-            super
-          end
-          
-          def add(o)
-            o.respond_to?(:<=>) or raise ArgumentError, "value must respond to <=>"
-            super
-          end
-          alias << add
-        }
-      rescue LoadError
-        module_eval %{
-          def initialize(*args, &block)
-            @keys = nil
-            super
-          end
-
-          def clear
-            @keys = nil
-            super
-          end
-
-          def replace(enum)
-            @keys = nil
-            super
-          end
-
-          def add(o)
-            o.respond_to?(:<=>) or raise ArgumentError, "value must respond to <=>"
-            @keys = nil
-            super
-          end
-          alias << add
-
-          def delete(o)
-            @keys = nil
-            @hash.delete(o)
-            self
-          end
-
-          def delete_if
-            block_given? or return enum_for(__method__)
-            n = @hash.size
-            super
-            @keys = nil if @hash.size != n
-            self
-          end
-
-          def keep_if
-            block_given? or return enum_for(__method__)
-            n = @hash.size
-            super
-            @keys = nil if @hash.size != n
-            self
-          end
-
-          def merge(enum)
-            @keys = nil
-            super
-          end
-
-          def each
-            block_given? or return enum_for(__method__)
-            to_a.each { |o| yield(o) }
-            self
-          end
-
-          def to_a
-            (@keys = @hash.keys).sort! unless @keys
-            @keys
-          end
-        }
-      end
-
-      @@setup = true
-    end
+  def self.[](*ary)        # :nodoc:
+    new(ary)
   end
 
-  def initialize(*args, &block)        # :nodoc:
-    SortedSet.setup
-    initialize(*args, &block)
+  def initialize(*args, &block)
+    @keys = nil
+    super
+  end
+
+  def clear
+    @keys = nil
+    super
+  end
+
+  def replace(enum)
+    @keys = nil
+    super
+  end
+
+  def add(o)
+    o.respond_to?(:<=>) or raise ArgumentError, "value must respond to <=>"
+    @keys = nil
+    super
+  end
+  alias << add
+
+  def delete(o)
+    @keys = nil
+    @hash.delete(o)
+    self
+  end
+
+  def delete_if
+    block_given? or return enum_for(__method__)
+    n = @hash.size
+    super
+    @keys = nil if @hash.size != n
+    self
+  end
+
+  def keep_if
+    block_given? or return enum_for(__method__)
+    n = @hash.size
+    super
+    @keys = nil if @hash.size != n
+    self
+  end
+
+  def merge(enum)
+    @keys = nil
+    super
+  end
+
+  def each
+    block_given? or return enum_for(__method__)
+    to_a.each { |o| yield(o) }
+    self
+  end
+
+  def to_a
+    (@keys = @hash.keys).sort! unless @keys
+    @keys
   end
 end
 
