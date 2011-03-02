@@ -54,6 +54,8 @@
 class Set
   include Enumerable
 
+  attr_reader :elements
+
   # Creates a new set containing the given objects.
   def self.[](*ary)
     new(ary)
@@ -65,7 +67,7 @@ class Set
   # If a block is given, the elements of enum are preprocessed by the
   # given block.
   def initialize(enum = nil, &block) # :yields: o
-    @hash ||= Hash.new
+    @elements ||= Hash.new
 
     enum.nil? and return
 
@@ -89,41 +91,41 @@ class Set
 
   # Copy internal hash.
   def initialize_copy(orig)
-    @hash = orig.instance_eval{@hash}.dup
+    @elements = orig.elements.dup
   end
 
   def freeze        # :nodoc:
     super
-    @hash.freeze
+    @elements.freeze
     self
   end
 
   def taint        # :nodoc:
     super
-    @hash.taint
+    @elements.taint
     self
   end
 
   def untaint        # :nodoc:
     super
-    @hash.untaint
+    @elements.untaint
     self
   end
 
   # Returns the number of elements.
   def size
-    @hash.size
+    @elements.size
   end
   alias length size
 
   # Returns true if the set contains no elements.
   def empty?
-    @hash.empty?
+    @elements.empty?
   end
 
   # Removes all elements and returns self.
   def clear
-    @hash.clear
+    @elements.clear
     self
   end
 
@@ -131,7 +133,7 @@ class Set
   # enumerable object and returns self.
   def replace(enum)
     if enum.instance_of?(self.class)
-      @hash.replace(enum.instance_variable_get(:@hash))
+      @elements.replace(enum.elements)
     else
       clear
       merge(enum)
@@ -142,7 +144,7 @@ class Set
 
   # Converts the set to an array.  The order of elements is uncertain.
   def to_a
-    @hash.keys
+    @elements.keys
   end
 
   def flatten_merge(set, seen = Set.new)
@@ -182,7 +184,7 @@ class Set
 
   # Returns true if the set contains the given object.
   def include?(o)
-    @hash.include?(o)
+    @elements.include?(o)
   end
   alias member? include?
 
@@ -219,14 +221,14 @@ class Set
   # given.
   def each
     block_given? or return enum_for(__method__)
-    @hash.each_key { |o| yield(o) }
+    @elements.each_key { |o| yield(o) }
     self
   end
 
   # Adds the given object to the set and returns self.  Use +merge+ to
   # add many elements at once.
   def add(o)
-    @hash[o] = true
+    @elements[o] = true
     self
   end
   alias << add
@@ -244,7 +246,7 @@ class Set
   # Deletes the given object from the set and returns self.  Use +subtract+ to
   # delete many items at once.
   def delete(o)
-    @hash.delete(o)
+    @elements.delete(o)
     self
   end
 
@@ -262,7 +264,7 @@ class Set
   # true, and returns self.
   def delete_if
     block_given? or return enum_for(__method__)
-    to_a.each { |o| @hash.delete(o) if yield(o) }
+    to_a.each { |o| @elements.delete(o) if yield(o) }
     self
   end
 
@@ -270,7 +272,7 @@ class Set
   # false, and returns self.
   def keep_if
     block_given? or return enum_for(__method__)
-    to_a.each { |o| @hash.delete(o) unless yield(o) }
+    to_a.each { |o| @elements.delete(o) unless yield(o) }
     self
   end
 
@@ -305,7 +307,7 @@ class Set
   # returns self.
   def merge(enum)
     if enum.instance_of?(self.class)
-      @hash.update(enum.instance_variable_get(:@hash))
+      @elements.update(enum.elements)
     else
       do_with_enum(enum) { |o| add(o) }
     end
@@ -359,21 +361,21 @@ class Set
     if self.equal?(other)
       true
     elsif other.instance_of?(self.class)
-      @hash == other.instance_variable_get(:@hash)
+      @elements == other.elements
     elsif other.is_a?(Set) && self.size == other.size
-      other.all? { |o| @hash.include?(o) }
+      other.all? { |o| @elements.include?(o) }
     else
       false
     end
   end
 
   def hash        # :nodoc:
-    @hash.hash
+    @elements.hash
   end
 
   def eql?(o)        # :nodoc:
     return false unless o.is_a?(Set)
-    @hash.eql?(o.instance_eval{@hash})
+    @elements.eql?(o.elements)
   end
 
   # Classifies the set by the return value of the given block and
@@ -540,23 +542,23 @@ class SortedSet < Set
 
   def delete(o)
     @keys = nil
-    @hash.delete(o)
+    @elements.delete(o)
     self
   end
 
   def delete_if
     block_given? or return enum_for(__method__)
-    n = @hash.size
+    n = @elements.size
     super
-    @keys = nil if @hash.size != n
+    @keys = nil if @elements.size != n
     self
   end
 
   def keep_if
     block_given? or return enum_for(__method__)
-    n = @hash.size
+    n = @elements.size
     super
-    @keys = nil if @hash.size != n
+    @keys = nil if @elements.size != n
     self
   end
 
@@ -572,7 +574,7 @@ class SortedSet < Set
   end
 
   def to_a
-    (@keys = @hash.keys).sort! unless @keys
+    (@keys = @elements.keys).sort! unless @keys
     @keys
   end
 end
