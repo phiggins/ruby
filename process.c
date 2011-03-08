@@ -122,17 +122,6 @@ static VALUE rb_cProcessTms;
 #endif
 #endif
 
-#if SIZEOF_RLIM_T == SIZEOF_INT
-# define RLIM2NUM(v) UINT2NUM(v)
-# define NUM2RLIM(v) NUM2UINT(v)
-#elif SIZEOF_RLIM_T == SIZEOF_LONG
-# define RLIM2NUM(v) ULONG2NUM(v)
-# define NUM2RLIM(v) NUM2ULONG(v)
-#elif SIZEOF_RLIM_T == SIZEOF_LONG_LONG
-# define RLIM2NUM(v) ULL2NUM(v)
-# define NUM2RLIM(v) NUM2ULL(v)
-#endif
-
 #define preserving_errno(stmts) \
 	do {int saved_errno = errno; stmts; errno = saved_errno;} while (0)
 
@@ -1294,7 +1283,7 @@ enum {
 };
 
 static VALUE
-check_exec_redirect_fd(VALUE v)
+check_exec_redirect_fd(VALUE v, int iskey)
 {
     VALUE tmp;
     int fd;
@@ -1326,6 +1315,11 @@ check_exec_redirect_fd(VALUE v)
       wrong:
         rb_raise(rb_eArgError, "negative file descriptor");
     }
+#ifdef _WIN32
+    else if (fd >= 3 && iskey) {
+        rb_raise(rb_eArgError, "wrong file descriptor (%d)", fd);
+    }
+#endif
     return INT2FIX(fd);
 }
 
@@ -1363,7 +1357,7 @@ check_exec_redirect(VALUE key, VALUE val, VALUE options)
         break;
 
       case T_FILE:
-        val = check_exec_redirect_fd(val);
+        val = check_exec_redirect_fd(val, 0);
         /* fall through */
       case T_FIXNUM:
         index = EXEC_OPTION_DUP2;
@@ -1375,7 +1369,7 @@ check_exec_redirect(VALUE key, VALUE val, VALUE options)
         if (RARRAY_LEN(val) == 2 && SYMBOL_P(path) &&
             SYM2ID(path) == rb_intern("child")) {
             index = EXEC_OPTION_DUP2_CHILD;
-            param = check_exec_redirect_fd(rb_ary_entry(val, 1));
+            param = check_exec_redirect_fd(rb_ary_entry(val, 1), 0);
         }
         else {
             index = EXEC_OPTION_OPEN;
@@ -1399,7 +1393,7 @@ check_exec_redirect(VALUE key, VALUE val, VALUE options)
         path = val;
         FilePathValue(path);
         if (TYPE(key) == T_FILE)
-            key = check_exec_redirect_fd(key);
+            key = check_exec_redirect_fd(key, 1);
         if (FIXNUM_P(key) && (FIX2INT(key) == 1 || FIX2INT(key) == 2))
             flags = INT2NUM(O_WRONLY|O_CREAT|O_TRUNC);
         else
@@ -1419,21 +1413,21 @@ check_exec_redirect(VALUE key, VALUE val, VALUE options)
         rb_ary_store(options, index, ary);
     }
     if (TYPE(key) != T_ARRAY) {
-        VALUE fd = check_exec_redirect_fd(key);
+        VALUE fd = check_exec_redirect_fd(key, !NIL_P(param));
         rb_ary_push(ary, hide_obj(rb_assoc_new(fd, param)));
     }
     else {
         int i, n=0;
         for (i = 0 ; i < RARRAY_LEN(key); i++) {
             VALUE v = RARRAY_PTR(key)[i];
-            VALUE fd = check_exec_redirect_fd(v);
+            VALUE fd = check_exec_redirect_fd(v, !NIL_P(param));
             rb_ary_push(ary, hide_obj(rb_assoc_new(fd, param)));
             n++;
         }
     }
 }
 
-#ifdef RLIM2NUM
+#if defined(HAVE_SETRLIMIT) && defined(NUM2RLIM)
 static int rlimit_type_by_lname(const char *name);
 #endif
 
@@ -1471,7 +1465,7 @@ rb_exec_arg_addopt(struct rb_exec_arg *e, VALUE key, VALUE val)
         }
         else
 #endif
-#ifdef RLIM2NUM
+#if defined(HAVE_SETRLIMIT) && defined(NUM2RLIM)
         if (strncmp("rlimit_", rb_id2name(id), 7) == 0 &&
             (rtype = rlimit_type_by_lname(rb_id2name(id)+7)) != -1) {
             VALUE ary = rb_ary_entry(options, EXEC_OPTION_RLIMIT);
@@ -1575,8 +1569,8 @@ check_exec_fds(VALUE options)
 {
     VALUE h = rb_hash_new();
     VALUE ary;
-    int index, i;
-    int maxhint = -1;
+    int index, maxhint = -1;
+    long i;
 
     for (index = EXEC_OPTION_DUP2; index <= EXEC_OPTION_DUP2_CHILD; index++) {
         ary = rb_ary_entry(options, index);
@@ -2122,7 +2116,8 @@ run_exec_dup2(VALUE ary, VALUE save, char *errmsg, size_t errmsg_buflen)
 static int
 run_exec_close(VALUE ary, char *errmsg, size_t errmsg_buflen)
 {
-    int i, ret;
+    long i;
+    int ret;
 
     for (i = 0; i < RARRAY_LEN(ary); i++) {
         VALUE elt = RARRAY_PTR(ary)[i];
@@ -2139,7 +2134,8 @@ run_exec_close(VALUE ary, char *errmsg, size_t errmsg_buflen)
 static int
 run_exec_open(VALUE ary, VALUE save, char *errmsg, size_t errmsg_buflen)
 {
-    int i, ret;
+    long i;
+    int ret;
 
     for (i = 0; i < RARRAY_LEN(ary);) {
         VALUE elt = RARRAY_PTR(ary)[i];
@@ -2185,7 +2181,9 @@ run_exec_open(VALUE ary, VALUE save, char *errmsg, size_t errmsg_buflen)
 static int
 run_exec_dup2_child(VALUE ary, VALUE save, char *errmsg, size_t errmsg_buflen)
 {
-    int i, ret;
+    long i;
+    int ret;
+
     for (i = 0; i < RARRAY_LEN(ary); i++) {
         VALUE elt = RARRAY_PTR(ary)[i];
         int newfd = FIX2INT(RARRAY_PTR(elt)[0]);
@@ -2228,11 +2226,11 @@ run_exec_pgroup(VALUE obj, VALUE save, char *errmsg, size_t errmsg_buflen)
 }
 #endif
 
-#ifdef RLIM2NUM
+#if defined(HAVE_SETRLIMIT) && defined(RLIM2NUM)
 static int
 run_exec_rlimit(VALUE ary, VALUE save, char *errmsg, size_t errmsg_buflen)
 {
-    int i;
+    long i;
     for (i = 0; i < RARRAY_LEN(ary); i++) {
         VALUE elt = RARRAY_PTR(ary)[i];
         int rtype = NUM2INT(RARRAY_PTR(elt)[0]);
@@ -2290,7 +2288,7 @@ rb_run_exec_options_err(const struct rb_exec_arg *e, struct rb_exec_arg *s, char
     }
 #endif
 
-#ifdef RLIM2NUM
+#if defined(HAVE_SETRLIMIT) && defined(RLIM2NUM)
     obj = rb_ary_entry(options, EXEC_OPTION_RLIMIT);
     if (!NIL_P(obj)) {
         if (run_exec_rlimit(obj, soptions, errmsg, errmsg_buflen) == -1)
@@ -2306,7 +2304,7 @@ rb_run_exec_options_err(const struct rb_exec_arg *e, struct rb_exec_arg *s, char
 
     obj = rb_ary_entry(options, EXEC_OPTION_ENV);
     if (!NIL_P(obj)) {
-        int i;
+        long i;
         save_env(soptions);
         for (i = 0; i < RARRAY_LEN(obj); i++) {
             VALUE pair = RARRAY_PTR(obj)[i];
@@ -3632,7 +3630,7 @@ proc_setpriority(VALUE obj, VALUE which, VALUE who, VALUE prio)
 #define proc_setpriority rb_f_notimplement
 #endif
 
-#if defined(RLIM2NUM)
+#if defined(HAVE_SETRLIMIT) && defined(NUM2RLIM)
 static int
 rlimit_resource_name2int(const char *name, int casetype)
 {
@@ -4526,7 +4524,49 @@ proc_setgid(VALUE obj, VALUE id)
 #endif
 
 
-static int maxgroups = 32;
+/*
+ * Maximum supplementary groups are platform dependent.
+ * FWIW, 65536 is enough big for our supported OSs.
+ *
+ * OS Name			max groups
+ * -----------------------------------------------
+ * Linux Kernel >= 2.6.3	65536
+ * Linux Kernel < 2.6.3		   32
+ * IBM AIX 5.2			   64
+ * IBM AIX 5.3 ... 6.1		  128
+ * IBM AIX 7.1			  128 (can be configured to be up to 2048)
+ * OpenBSD, NetBSD		   16
+ * FreeBSD < 8.0		   16
+ * FreeBSD >=8.0		 1023
+ * Darwin (Mac OS X)		   16
+ * Sun Solaris 7,8,9,10		   16
+ * Sun Solaris 11 / OpenSolaris	 1024
+ * HP-UX			   20
+ * Windows			 1015
+ */
+#define RB_MAX_GROUPS (65536)
+static int _maxgroups = -1;
+static int get_sc_ngroups_max(void)
+{
+#ifdef _SC_NGROUPS_MAX
+    return (int)sysconf(_SC_NGROUPS_MAX);
+#elif defined(NGROUPS_MAX)
+    return (int)NGROUPS_MAX;
+#else
+    return 32;
+#endif
+}
+static int maxgroups(void)
+{
+    if (_maxgroups < 0) {
+	_maxgroups = get_sc_ngroups_max();
+	if (_maxgroups < 0)
+	    _maxgroups = RB_MAX_GROUPS;
+    }
+
+    return _maxgroups;
+}
+
 
 
 #ifdef HAVE_GETGROUPS
@@ -4548,9 +4588,13 @@ proc_getgroups(VALUE obj)
     int i, ngroups;
     rb_gid_t *groups;
 
-    groups = ALLOCA_N(rb_gid_t, maxgroups);
+    ngroups = getgroups(0, NULL);
+    if (ngroups == -1)
+	rb_sys_fail(0);
 
-    ngroups = getgroups(maxgroups, groups);
+    groups = ALLOCA_N(rb_gid_t, ngroups);
+
+    ngroups = getgroups(ngroups, groups);
     if (ngroups == -1)
 	rb_sys_fail(0);
 
@@ -4582,19 +4626,26 @@ proc_getgroups(VALUE obj)
 static VALUE
 proc_setgroups(VALUE obj, VALUE ary)
 {
-    size_t ngroups, i;
+    int ngroups, i;
     rb_gid_t *groups;
-    struct group *gr;
+#ifdef HAVE_GETGRNAM_R
+    long getgr_buf_len = sysconf(_SC_GETGR_R_SIZE_MAX);
+    char* getgr_buf;
+
+    if (getgr_buf_len < 0)
+	getgr_buf_len = 4096;
+    getgr_buf = ALLOCA_N(char, getgr_buf_len);
+#endif
 
     Check_Type(ary, T_ARRAY);
 
-    ngroups = RARRAY_LEN(ary);
-    if (ngroups > (size_t)maxgroups)
-	rb_raise(rb_eArgError, "too many groups, %u max", maxgroups);
+    ngroups = RARRAY_LENINT(ary);
+    if (ngroups > maxgroups())
+	rb_raise(rb_eArgError, "too many groups, %d max", maxgroups());
 
     groups = ALLOCA_N(rb_gid_t, ngroups);
 
-    for (i = 0; i < ngroups && i < (size_t)RARRAY_LEN(ary); i++) {
+    for (i = 0; i < ngroups; i++) {
 	VALUE g = RARRAY_PTR(ary)[i];
 
 	if (FIXNUM_P(g)) {
@@ -4602,23 +4653,33 @@ proc_setgroups(VALUE obj, VALUE ary)
 	}
 	else {
 	    VALUE tmp = rb_check_string_type(g);
+	    struct group grp;
+	    struct group *p;
+	    int ret;
 
 	    if (NIL_P(tmp)) {
 		groups[i] = NUM2GIDT(g);
 	    }
 	    else {
-		gr = getgrnam(RSTRING_PTR(tmp));
-		if (gr == NULL) {
-		    RB_GC_GUARD(tmp);
+		const char *grpname = StringValueCStr(tmp);
+
+#ifdef HAVE_GETGRNAM_R
+		ret = getgrnam_r(grpname, &grp, getgr_buf, getgr_buf_len, &p);
+		if (ret)
+		    rb_sys_fail("getgrnam_r");
+#else
+		p = getgrnam(grpname);
+#endif
+		if (p == NULL) {
 		    rb_raise(rb_eArgError,
 			     "can't find group for %s", RSTRING_PTR(tmp));
 		}
-		groups[i] = gr->gr_gid;
+		groups[i] = p->gr_gid;
 	    }
 	}
     }
 
-    if (setgroups((int)ngroups, groups) == -1) /* ngroups <= maxgroups */
+    if (setgroups(ngroups, groups) == -1) /* ngroups <= maxgroups */
 	rb_sys_fail(0);
 
     return proc_getgroups(obj);
@@ -4672,7 +4733,7 @@ proc_initgroups(VALUE obj, VALUE uname, VALUE base_grp)
 static VALUE
 proc_getmaxgroups(VALUE obj)
 {
-    return INT2FIX(maxgroups);
+    return INT2FIX(maxgroups());
 }
 
 
@@ -4687,14 +4748,21 @@ proc_getmaxgroups(VALUE obj)
 static VALUE
 proc_setmaxgroups(VALUE obj, VALUE val)
 {
-    int ngroups = FIX2UINT(val);
+    int ngroups = FIX2INT(val);
+    int ngroups_max = get_sc_ngroups_max();
 
-    if (ngroups > 4096)
-	ngroups = 4096;
+    if (ngroups <= 0)
+	rb_raise(rb_eArgError, "maxgroups %d shold be positive", ngroups);
 
-    maxgroups = ngroups;
+    if (ngroups > RB_MAX_GROUPS)
+	ngroups = RB_MAX_GROUPS;
 
-    return INT2FIX(maxgroups);
+    if (ngroups_max > 0 && ngroups > ngroups_max)
+	ngroups = ngroups_max;
+
+    _maxgroups = ngroups;
+
+    return INT2FIX(_maxgroups);
 }
 
 #if defined(HAVE_DAEMON) || (defined(HAVE_FORK) && defined(HAVE_SETSID))
@@ -5668,7 +5736,7 @@ Init_process(void)
 
     rb_define_module_function(rb_mProcess, "getrlimit", proc_getrlimit, 1);
     rb_define_module_function(rb_mProcess, "setrlimit", proc_setrlimit, -1);
-#ifdef RLIM2NUM
+#if defined(RLIM2NUM) && defined(RLIM_INFINITY)
     {
         VALUE inf = RLIM2NUM(RLIM_INFINITY);
 #ifdef RLIM_SAVED_MAX

@@ -471,6 +471,7 @@ if test "$GCC:${warnflags+set}:no" = yes::no; then
                              [wflag=-Wall])
     RUBY_TRY_CFLAGS($wflag, [warnflags="$wflag${warnflags+ $warnflags}"])
     # Disable warnflags while conftest. -Werror=* flags might make bad OS capability guess.
+    rb_cv_warnflags="$warnflags"
     warnflags=
 fi
 if test "$GCC" = yes; then
@@ -641,7 +642,10 @@ fi
 
 dnl RUBY_REPLACE_TYPE [typename] [default type] [macro type] [included]
 AC_DEFUN([RUBY_REPLACE_TYPE], [dnl
-    AC_CHECK_TYPE([$1], [n=[$1]], [n=[$2]], [$4])
+    AC_CHECK_TYPE([$1],
+		  [n="patsubst([$1],["],[\\"])"],
+		  [n="patsubst([$2],["],[\\"])"],
+		  [$4])
     AC_CACHE_CHECK([for convertible type of [$1]], rb_cv_[$1]_convertible, [
 	u= t=
 	AS_CASE(["$n "],
@@ -688,6 +692,7 @@ RUBY_REPLACE_TYPE(gid_t, int, GIDT)
 RUBY_REPLACE_TYPE(time_t, [], TIMET, [@%:@include <time.h>])
 RUBY_REPLACE_TYPE(dev_t, [int long "long long"], DEVT)
 RUBY_REPLACE_TYPE(mode_t, ["unsigned int" long], MODET, [@%:@include <sys/stat.h>])
+RUBY_REPLACE_TYPE(rlim_t, [int long "long long"], RLIM, [@%:@include <sys/resource.h>])
 
 AC_CACHE_CHECK(for prototypes, rb_cv_have_prototypes,
   [AC_TRY_COMPILE([int foo(int x) { return 0; }], [return foo(10);],
@@ -1125,23 +1130,6 @@ AC_CHECK_HEADERS(limits.h sys/file.h sys/ioctl.h sys/syscall.h\
 		 ucontext.h intrinsics.h langinfo.h locale.h sys/sendfile.h time.h \
 		 net/socket.h sys/socket.h)
 
-dnl Check additional types.
-RUBY_CHECK_SIZEOF(rlim_t, [int long "long long"], [], [
-  #ifdef HAVE_SYS_TYPES_H
-  # include <sys/types.h>
-  #endif
-  #ifdef HAVE_SYS_TIME_H
-  # include <sys/time.h>
-  #endif
-  #ifdef HAVE_SYS_RESOURCE_H
-  # include <sys/resource.h>
-  #endif
-  #ifdef HAVE_UNISTD_H
-  # include <unistd.h>
-  #endif
-  #include <stdio.h>
-])
-
 AC_TYPE_SIZE_T
 RUBY_CHECK_SIZEOF(size_t, [int long void*], [], [@%:@include <sys/types.h>])
 RUBY_CHECK_SIZEOF(ptrdiff_t, size_t, [], [@%:@include <stddef.h>])
@@ -1318,7 +1306,7 @@ AC_CHECK_FUNCS(fmod killpg wait4 waitpid fork spawnv syscall __syscall chroot ge
 	      setitimer setruid seteuid setreuid setresuid setproctitle socketpair\
 	      setrgid setegid setregid setresgid issetugid pause lchown lchmod\
 	      getpgrp setpgrp getpgid setpgid initgroups getgroups setgroups\
-	      getpriority getrlimit setrlimit sysconf close\
+	      getpriority getrlimit setrlimit sysconf close getgrnam_r\
 	      dlopen sigprocmask sigaction sigsetjmp _setjmp _longjmp\
 	      setsid telldir seekdir fchmod cosh sinh tanh log2 round\
 	      setuid setgid daemon select_large_fdset setenv unsetenv\
@@ -2920,6 +2908,8 @@ AC_CONFIG_FILES(Makefile, [{
 
 ruby_pc="${RUBY_BASE_NAME}-${MAJOR}.${MINOR}.pc"
 AC_SUBST(ruby_pc)
+AC_SUBST(exec, [exec])
+
 AC_CONFIG_FILES($ruby_pc:template/ruby.pc.in,
     [
     if sed ['s/\$(\([A-Za-z_][A-Za-z0-9_]*\))/${\1}/g;s/@[A-Za-z_][A-Za-z0-9_]*@//'] $ruby_pc > ruby.tmp.pc &&

@@ -3504,9 +3504,9 @@ rb_str_slice_bang(int argc, VALUE *argv, VALUE str)
 	buf[i] = argv[i];
     }
     str_modify_keep_cr(str);
-    buf[i] = rb_str_new(0,0);
     result = rb_str_aref_m(argc, buf, str);
     if (!NIL_P(result)) {
+	buf[i] = rb_str_new(0,0);
 	rb_str_aset_m(argc+1, buf, str);
     }
     return result;
@@ -3990,35 +3990,37 @@ rb_str_setbyte(VALUE str, VALUE index, VALUE value)
 static VALUE
 str_byte_substr(VALUE str, long beg, long len)
 {
-	char *p, *s = RSTRING_PTR(str), *e = s + RSTRING_LEN(str);
-	VALUE str2;
-	if (beg > RSTRING_LEN(str)) return Qnil;
-	if (beg < 0) {
-	    beg += RSTRING_LEN(str);
-	    if (beg < 0) return Qnil;
-	}
-	if (beg + len > RSTRING_LEN(str))
-	    len = RSTRING_LEN(str) - beg;
-	if (len <= 0) {
-	    len = 0;
-	    p = 0;
-	}
-	else
-	    p = s + beg;
+    char *p, *s = RSTRING_PTR(str);
+    long n = RSTRING_LEN(str);
+    VALUE str2;
 
-	if (len > RSTRING_EMBED_LEN_MAX && beg + len == RSTRING_LEN(str)) {
-	    str2 = rb_str_new4(str);
-	    str2 = str_new3(rb_obj_class(str2), str2);
-	    RSTRING(str2)->as.heap.ptr += RSTRING(str2)->as.heap.len - len;
-	    RSTRING(str2)->as.heap.len = len;
-	}
-	else {
-	    str2 = rb_str_new5(str, p, len);
-	    rb_enc_cr_str_copy_for_substr(str2, str);
-	    OBJ_INFECT(str2, str);
-	}
+    if (beg > n || len < 0) return Qnil;
+    if (beg < 0) {
+	beg += n;
+	if (beg < 0) return Qnil;
+    }
+    if (beg + len > n)
+	len = n - beg;
+    if (len <= 0) {
+	len = 0;
+	p = 0;
+    }
+    else
+	p = s + beg;
 
-	return str2;
+    if (len > RSTRING_EMBED_LEN_MAX && beg + len == n) {
+	str2 = rb_str_new4(str);
+	str2 = str_new3(rb_obj_class(str2), str2);
+	RSTRING(str2)->as.heap.ptr += RSTRING(str2)->as.heap.len - len;
+	RSTRING(str2)->as.heap.len = len;
+    }
+    else {
+	str2 = rb_str_new5(str, p, len);
+	rb_enc_cr_str_copy_for_substr(str2, str);
+	OBJ_INFECT(str2, str);
+    }
+
+    return str2;
 }
 
 static VALUE
@@ -4073,8 +4075,8 @@ str_byte_aref(VALUE str, VALUE indx)
  *     "hello".byteslice(1)     #=> "e"
  *     "hello".byteslice(-1)    #=> "o"
  *     "hello".byteslice(1, 2)  #=> "el"
- *     "\u3042".byteslice(1, 2) #=> "\x81\x82"
- *     "\u3042".byteslice(1..3) #=> "\x81\x82"
+ *     "\x80\u3042".byteslice(1, 3) #=> "\u3042"
+ *     "\x03\u3042\xff".byteslice(1..3) #=> "\u3942"
  */
 
 static VALUE
@@ -4974,8 +4976,8 @@ tr_trans(VALUE str, VALUE src, VALUE repl, int sflag)
     rb_encoding *enc, *e1, *e2;
     struct tr trsrc, trrepl;
     int cflag = 0;
-    unsigned int c, c0;
-    int last = 0, modify = 0, i, l;
+    unsigned int c, c0, last = 0;
+    int modify = 0, i, l;
     char *s, *send;
     VALUE hash = 0;
     int singlebyte = single_byte_optimizable(str);

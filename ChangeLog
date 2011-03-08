@@ -1,3 +1,291 @@
+Wed Mar  9 00:45:29 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/extmk.rb: nmake substitutes all occurences in macro.
+
+	* ext/extmk.rb: workaround for nmake.
+
+Tue Mar  8 23:49:45 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* process.c (proc_setgroups): cleanup.
+
+Tue Mar  8 23:40:30 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* test/misc/test_ruby_mode.rb: test for ruby-mode.el.
+
+Tue Mar  8 23:27:38 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* process.c (get_sc_ngroups_max): try to use NGROUPS_MAX at first if
+	  _SC_NGROUP_MAX is not defined.
+
+Tue Mar  8 23:10:16 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* misc/ruby-mode.el (ruby-parse-partial): fix for array in block.
+
+Tue Mar  8 21:44:49 2011  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/ossl_rand.c: parenthesize macro arguments.
+
+Tue Mar  8 16:45:31 2011  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* hash.c (ruby_setenv): MSDN says that Windows XP or earlier limits
+	  the total size of environment block to 5,120 chars.  and on such
+	  OS, putenv() causes SEGV.  So, ruby should limit the size of an
+	  environment variable to 5,120 bytes for workaround.
+
+Tue Mar  8 15:57:20 2011  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* test/rubygems/test_gem_spec_fetcher.rb
+	  (TestGemSpecFetcher#test_cache_dir_escapes_windows_paths): cache_dir
+	  may have driveletter and `:' for base of cache_dir itself, so need
+	  to skip it for checking.
+
+Tue Mar  8 12:30:06 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* misc/ruby-mode.el (ruby-deep-indent-paren-p, ruby-calculate-indent):
+	  do not apply deep-indent inside parens at the beginning of
+	  expressions.
+
+Tue Mar  8 09:32:48 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* common.mk (configure-ext, build-ext), ext/extmk.rb (extmake):
+	  support parallel-make under ext.
+
+Tue Mar  8 09:25:23 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* process.c (proc_setgroups): use getgrnam() if getgrnam_r() is
+	  not available.
+
+	* process.c: RARRAY_LEN() returns long int.
+
+Tue Mar  8 09:07:03 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in (RUBY_REPLACE_TYPE): enclose in quotes for multiple
+	  type names.
+
+Tue Mar  8 01:43:11 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* process.c (get_sc_ngroups_max): define to wrap sysconf(3).
+	  this also supports Windows which doesn't have sysconf(3).
+
+	* process.c (maxgroups): use get_sc_ngroups_max.
+
+	* process.c (proc_setmaxgroups): ditto.
+
+Tue Mar  8 01:16:49 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* gc.c (rb_objspace): an initializer must be a constant.
+
+Tue Mar  8 01:11:44 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* process.c (maxgroups): cast because sysconf(3)'s return value is long.
+
+	* process.c (proc_setmaxgroups): ditto.
+
+	* process.c (proc_setgroups): cast because RARRAY_LEN() is long.
+
+Tue Mar  8 00:02:47 2011  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/ossl_pkey_rsa.c: parenthesize macro arguments.
+
+Mon Mar  7 22:59:39 2011  Shota Fukumori  <sorah@tubusu.net>
+
+	* lib/pstore.rb: Delete variable @transaction and fix #4474. Patch by
+	  Masaki Matsushita (Glass_saga).
+
+	* test/test_pstore.rb(test_thread_safe): Add test for #4474.
+
+Mon Mar  7 21:31:38 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* process.c (proc_setgroups): replace getgrnam() with getgrnam_r()
+	  because getgrnam() isn't thread safe.
+
+Mon Mar  7 20:49:12 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* process.c (proc_getmaxgroups, proc_setmaxgroups): reflect
+	  platform maxgroups limitation by default instead hardcoded 65536.
+
+Mon Mar  7 17:13:00 2011  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* gc.c (rb_gc_set_params): allow GC parameter configuration by
+	  environment variables.  based on a patch from funny-falcon at
+	  https://gist.github.com/856296, but honors safe level.
+
+Mon Mar  7 09:05:18 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* process.c: NUM2RLIM is defined but no getrlimit and setrlimit on
+	  mingw.
+
+Mon Mar  7 08:38:14 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/date/date_core.c (DateTimeData): should not use bare 'long long'
+	  and 'long double', which are not defined by C89.
+
+	* ext/date/date_core.c (dt_lite_plus): get rid of overflow at casting
+	  down double to integer.
+
+Mon Mar  7 00:21:11 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* process.c (proc_getgroups): get rid of maxgroups dependency.
+	  ngroups can be calculated dynamically.
+
+Sun Mar  6 23:45:40 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* configure.in: rlim_t use standard RUBY_REPLACE_TYPE mechanism.
+
+Sun Mar  6 23:26:07 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* process.c (proc_setmaxgroups): added negative value check.
+	  This was suggested by Daniel Berger. Thanks Daniel!
+	  [ruby-core:35426][Bug#4467]
+
+Sun Mar  6 23:18:23 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* process.c (maxgroups, proc_setmaxgroups): increase max groups
+	  limitation up to 65536.
+
+Sun Mar  6 22:20:59 2011  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/ossl_pkey_ec.c: parenthesize macro arguments.
+
+Sun Mar  6 21:49:04 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* sample/list.rb (MyElem#initialize): initialize @head
+	  explicitly. Otherwise -W2 option makes following warning.
+	  "warning: instance variable @head not initialized".
+	  This issue was founded by Andrew Grimm. Thanks Andrew!
+	  [ruby-core:35435][Bug#4471]
+
+Sun Mar  6 05:21:41 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* class.c: fix camelCase to snake_case in documentation code examples.
+	  patched by Andrew Grimm. fixes Bug #4469
+
+	* marshal.c: ditto.
+
+	* proc.c: ditto.
+
+	* sample/biorhythm.rb: ditto.
+
+	* vm_eval.c: ditto.
+
+	* vm_method.c: ditto.
+
+
+Sun Mar  6 03:22:27 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* io.c (io_cntl): use rb_thread_io_blocking_region() instead
+	  rb_thread_blocking_region().
+
+Sat Mar  5 22:54:36 2011  CHIKANAGA Tomoyuki  <nagachika00@gmail.com>
+
+	* include/ruby/intern.h: fix a typo of prototype declaration.
+	  rb_mutex_try_lock -> rb_mutex_trylock [ruby-dev:43213]
+
+Sat Mar  5 19:44:03 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* test/ruby/test_io.rb (TestIO#test_fcntl_lock): small clean up.
+
+Sat Mar  5 01:33:46 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* io.c (io_cntl, nogvl_io_cntl): IO.fcntl() and IO.ioctl()
+	  release GVL during calling kernel interface.
+	  Suggested by Eric Wong. [ruby-core:35417][Bug #4463]
+
+	* test/ruby/test_io.rb (TestIO#test_fcntl_lock): add new test for
+	  IO.fcntl().
+
+Fri Mar  4 23:09:12 2011  CHIKANAGA Tomoyuki  <nagachika00@gmail.com>
+
+	* test/testunit/test_parallel.rb
+	  (test_should_run_all_without_any_leaks): consider that the order of
+	  testcase could change. [ruby-dev:43300] [Bug #4466]
+
+Fri Mar  4 22:01:14 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* io.c (io_cntl): change 'cmd' type to int. ioctl and fcntl need to
+	  be passed int.
+	* io.c (rb_io_ctl): ditto.
+
+Fri Mar  4 21:10:40 2011  KOSAKI Motohiro  <kosaki.motohiro@gmail.com>
+
+	* configure.in: save warnflags. the patch is created by Eric Wong.
+	  [Bug #4465]
+
+Wed Mar  2 21:15:00 2011  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/ossl_pkey_dsa.c: parenthesize macro arguments.
+
+Thu Mar  3 22:10:26 2011  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* process.c (check_exec_redirect_fd, check_exec_redirect): raise
+	  ArgumentError if fd >= 3 on Windows because the feature is not
+	  supported.
+
+	* test/ruby/test_process.rb (test_execopts_redirect): remove meaningless
+	  argument.
+
+Thu Mar  3 21:21:42 2011  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* test/ruby/test_process.rb (test_execopts_redirect): redirecting fd
+	  >= 3 is not supported on Windows, so should not specify such options
+	  when calling spawn or others.
+
+Thu Mar  3 18:59:04 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* string.c (rb_str_slice_bang): raise error when the string is frozen.
+
+Thu Mar  3 14:25:19 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* strftime.c (STRFTIME): return 0 and ERANGE when precision is too
+	  large. [ruby-dev:43284] fixes #4456
+
+Thu Mar  3 00:46:51 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* addr2line.c (uleb128): cast the value to unsigned long.
+
+	* addr2line.c (fill_lines): print error when lseek fails.
+
+Thu Mar  3 00:36:29 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* lib/rexml/encoding.rb (REXML::Encoding#encoding=): store @encoding
+	  a String which means the name of the encoding.
+	  this partially revert r29646.
+
+	* lib/rexml/document.rb: follow above.
+
+	* lib/rexml/output.rb: ditto.
+
+	* lib/rexml/parsers/baseparser.rb: ditto.
+
+	* lib/rexml/source.rb: ditto.
+
+	* lib/rexml/xmldecl.rb: ditto.
+
+Wed Mar  2 23:19:56 2011  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* string.c (str_byte_substr): return nil for negative length.
+
+Wed Mar  2 21:15:00 2011  Tanaka Akira  <akr@fsij.org>
+
+	* ext/openssl/ossl_pkey_dh.c: parenthesize macro arguments.
+
+Wed Mar  2 14:24:04 2011  Shota Fukumori  <sorah@tubusu.net>
+
+	* lib/test/unit/parallel.rb: Fix name from `inclement_io` to
+	  `increment_io`.
+
+Wed Mar  2 14:06:01 2011  NARUSE, Yui  <naruse@ruby-lang.org>
+
+	* string.c (rb_str_slice_bang): move treatments which is only needed
+	  when the result is not nil.
+
+Wed Mar  2 14:02:29 2011  Shota Fukumori  <sorah@tubusu.net>
+
+	* test/testunit/test_parallel.rb(TestParallel#spawn_runner):
+	  Fix outputing empty line in running test.
+
+	* test/testunit/tests_for_parallel/test_third.rb: Remove `sleep`
+
 Tue Mar  1 22:29:10 2011  Tanaka Akira  <akr@fsij.org>
 
 	* ext/openssl/ossl_pkey.h: parenthesize macro arguments.
@@ -52,9 +340,9 @@ Tue Mar  1 10:34:39 2011  NARUSE, Yui  <naruse@ruby-lang.org>
 
 Tue Mar  1 00:12:49 2011  Tajima Akio <artonx@yahoo.co.jp>
 
-	* include/ruby/win32.h: define WIN32 if neither _WIN64 nor WIN32 
+	* include/ruby/win32.h: define WIN32 if neither _WIN64 nor WIN32
 	  defined. it forces to use push/pop for pack(4) pragma.
-	
+
 Mon Feb 28 23:52:13 2011  CHIKANAGA Tomoyuki  <nagachika00@gmail.com>
 
 	* test/testunit/test_rake_integration.rb (test_with_rake_runner):
