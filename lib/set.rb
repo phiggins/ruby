@@ -514,35 +514,21 @@ end
 #   set2.each { |obj| } # => raises ArgumentError: comparison of Fixnum with String failed
 #   
 class SortedSet < Set
-  def self.[](*ary)        # :nodoc:
-    new(ary)
-  end
-
   def initialize(*args, &block)
-    @keys = nil
-    super
-  end
-
-  def clear
-    @keys = nil
-    super
-  end
-
-  def replace(enum)
-    @keys = nil
-    super
+    @elements = Set.new(*args, &block).sort
   end
 
   def add(o)
     o.respond_to?(:<=>) or raise ArgumentError, "value must respond to <=>"
-    @keys = nil
-    super
+    i = index(o)
+    @elements.insert(i, o) unless @elements.at(i - 1) == o
+    self
   end
   alias << add
 
   def delete(o)
-    @keys = nil
-    @elements.delete(o)
+    i = index(o) - 1
+    @elements.delete_at(i) if @elements.at(i) == o
     self
   end
 
@@ -574,8 +560,30 @@ class SortedSet < Set
   end
 
   def to_a
-    (@keys = @elements.keys).sort! unless @keys
-    @keys
+    @elements
+  end
+
+  # Code borrowed from here:
+  # https://github.com/chuckremes/zmqmachine/blob/69742afab4d68b1cbaade5a5721f6924e5f55ed5/lib/zm/timers.rb
+  #
+  # Original Ruby source Posted by Sergey Chernov (sergeych) on 2010-05-13 20:23
+  # http://www.ruby-forum.com/topic/134477
+  #
+  # binary search; assumes underlying array is already sorted
+  def index value
+    l, r = 0, @elements.size - 1
+
+    while l <= r
+      m = (r + l) / 2
+
+      if value < @elements.at(m)
+        r = m - 1
+      else
+        l = m + 1
+      end
+    end
+
+    l
   end
 end
 
@@ -699,23 +707,6 @@ module CommonTests
     ary = set.to_a
 
     assert_equal([1,2,3], ary.sort)
-  end
-
-  def test_include?
-    set = klass[1,2,3]
-
-    assert_equal(true, set.include?(1))
-    assert_equal(true, set.include?(2))
-    assert_equal(true, set.include?(3))
-    assert_equal(false, set.include?(0))
-    assert_equal(false, set.include?(nil))
-
-    set = klass["1",nil,"2",nil,"0","1",false]
-    assert_equal(true, set.include?(nil))
-    assert_equal(true, set.include?(false))
-    assert_equal(true, set.include?("1"))
-    assert_equal(false, set.include?(0))
-    assert_equal(false, set.include?(true))
   end
 
   def test_superset?
@@ -943,26 +934,6 @@ module CommonTests
     assert_equal(klass[1,3,5], ret)
   end
 
-  def test_eq
-    set1 = klass[2,3,1]
-    set2 = klass[1,2,3]
-
-    assert_equal(set1, set1)
-    assert_equal(set1, set2)
-    assert_not_equal(klass[1], [1])
-
-    set1 = Class.new(klass)["a", "b"]
-    set2 = klass["a", "b", set1]
-    set1 = set1.add(set1.clone)
-
-#    assert_equal(set1, set2)
-#    assert_equal(set2, set1)
-    assert_equal(set2, set2.clone)
-    assert_equal(set1.clone, set1)
-
-    assert_not_equal(klass[Exception.new,nil], klass[Exception.new,Exception.new], "[ruby-dev:26127]")
-  end
-
   # def test_hash
   # end
 
@@ -1124,6 +1095,43 @@ class TC_Set < Test::Unit::TestCase
 
     assert_equal(x, y)
   end
+
+  def test_include?
+    set = Set[1,2,3]
+
+    assert_equal(true, set.include?(1))
+    assert_equal(true, set.include?(2))
+    assert_equal(true, set.include?(3))
+    assert_equal(false, set.include?(0))
+    assert_equal(false, set.include?(nil))
+
+    set = Set["1",nil,"2",nil,"0","1",false]
+    assert_equal(true, set.include?(nil))
+    assert_equal(true, set.include?(false))
+    assert_equal(true, set.include?("1"))
+    assert_equal(false, set.include?(0))
+    assert_equal(false, set.include?(true))
+  end
+
+  def test_eq
+    set1 = Set[2,3,1]
+    set2 = Set[1,2,3]
+
+    assert_equal(set1, set1)
+    assert_equal(set1, set2)
+    assert_not_equal(Set[1], [1])
+
+    set1 = Class.new(Set)["a", "b"]
+    set2 = Set["a", "b", set1]
+    set1 = set1.add(set1.clone)
+
+#    assert_equal(set1, set2)
+#    assert_equal(set2, set1)
+    assert_equal(set2, set2.clone)
+    assert_equal(set1.clone, set1)
+
+    assert_not_equal(Set[Exception.new,nil], Set[Exception.new,Exception.new], "[ruby-dev:26127]")
+  end
 end
 
 class TC_SortedSet < Test::Unit::TestCase
@@ -1148,6 +1156,43 @@ class TC_SortedSet < Test::Unit::TestCase
 
     assert_same(set, ret)
     assert_equal(SortedSet[1,4,9,16], set)
+  end
+
+  def test_include?
+    set = SortedSet[1,2,3]
+
+    assert_equal(true, set.include?(1))
+    assert_equal(true, set.include?(2))
+    assert_equal(true, set.include?(3))
+    assert_equal(false, set.include?(0))
+    assert_equal(false, set.include?(nil))
+
+    set = SortedSet["1","2","0","1"]
+    assert_equal(true, set.include?("1"))
+    assert_equal(false, set.include?(0))
+    assert_equal(false, set.include?(true))
+    assert_equal(false, set.include?(nil))
+    assert_equal(false, set.include?(false))
+  end
+
+  def test_eq
+    set1 = SortedSet[2,3,1]
+    set2 = SortedSet[1,2,3]
+
+    assert_equal(set1, set1)
+    assert_equal(set1, set2)
+    assert_not_equal(SortedSet[1], [1])
+
+    set1 = Class.new(SortedSet)["a", "b"]
+    set2 = SortedSet["a", "b", set1]
+    set1 = set1.add(set1.clone)
+
+#    assert_equal(set1, set2)
+#    assert_equal(set2, set1)
+    assert_equal(set2, set2.clone)
+    assert_equal(set1.clone, set1)
+
+    assert_not_equal(SortedSet[Exception.new,nil], SortedSet[Exception.new,Exception.new], "[ruby-dev:26127]")
   end
 
   def test_sortedset
