@@ -532,35 +532,22 @@ class SortedSet < Set
     self
   end
 
-  def delete_if
+  def each &block
     block_given? or return enum_for(__method__)
-    n = @elements.size
-    super
-    @keys = nil if @elements.size != n
-    self
-  end
-
-  def keep_if
-    block_given? or return enum_for(__method__)
-    n = @elements.size
-    super
-    @keys = nil if @elements.size != n
-    self
-  end
-
-  def merge(enum)
-    @keys = nil
-    super
-  end
-
-  def each
-    block_given? or return enum_for(__method__)
-    to_a.each { |o| yield(o) }
+    @elements.each &block
     self
   end
 
   def to_a
     @elements
+  end
+
+  # Deletes every element of the set for which block evaluates to
+  # true, and returns self.
+  def delete_if &block
+    block_given? or return enum_for(__method__)
+    @elements.delete_if &block
+    self
   end
 
   # Code borrowed from here:
