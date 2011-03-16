@@ -530,6 +530,8 @@ class SortedSet < Set
     i = index(o) - 1
     @elements.delete_at(i) if @elements.at(i) == o
     self
+  rescue ArgumentError
+    self
   end
 
   def each &block
@@ -563,10 +565,16 @@ class SortedSet < Set
     while l <= r
       m = (r + l) / 2
 
-      if value < @elements.at(m)
+      case value <=> @elements.at(m)
+      when -1
         r = m - 1
-      else
+      when 0, 1
         l = m + 1
+      else
+        msg = "comparison of %s with %s failed" % 
+          [@elements.at(m).class, value.class]
+
+        raise ArgumentError, msg
       end
     end
 
@@ -1176,6 +1184,31 @@ class TC_SortedSet < Test::Unit::TestCase
     assert_equal(set1, set2)
     assert_equal(set2, set2.clone)
     assert_equal(set1.clone, set1)
+  end
+
+  def test_delete_doesnt_raise
+    set = SortedSet[0,1,2]
+
+    set.delete(nil)
+    set.delete('1')
+  end
+
+  def test_add_raises_argument_error_for_non_comparable_types
+    set = SortedSet[0,1,2]
+
+    e = assert_raises(ArgumentError) do
+      set.add('4')
+    end
+
+    assert_match "comparison of Fixnum with String failed", e.message
+
+    e = assert_raises(ArgumentError) do
+      set.add(nil)
+    end
+  
+    # couldn't get this to work :(
+    #assert_equal "comparison of Fixnum with nil failed", e.message
+    assert_equal "comparison of Fixnum with NilClass failed", e.message
   end
 
   def test_sortedset
