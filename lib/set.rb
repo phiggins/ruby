@@ -1184,15 +1184,11 @@ class TC_SortedSet < Test::Unit::TestCase
     assert_not_equal(SortedSet[1], [1])
 
     set1 = Class.new(SortedSet)["a", "b"]
-    set2 = SortedSet["a", "b", set1]
-    set1 = set1.add(set1.clone)
+    set2 = SortedSet["a", "b"]
 
-#    assert_equal(set1, set2)
-#    assert_equal(set2, set1)
+    assert_equal(set1, set2)
     assert_equal(set2, set2.clone)
     assert_equal(set1.clone, set1)
-
-    assert_not_equal(SortedSet[Exception.new,nil], SortedSet[Exception.new,Exception.new], "[ruby-dev:26127]")
   end
 
   def test_sortedset
