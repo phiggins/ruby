@@ -571,10 +571,12 @@ class SortedSet < Set
       when 0, 1
         l = m + 1
       else
-        msg = "comparison of %s with %s failed" % 
-          [@elements.at(m).class, value.class]
+        # This raises the correct exception for eg, nil, Fixnum, etc
+        @elements.at(m) < value
 
-        raise ArgumentError, msg
+        # Possibly some corner cases that won't raise above(?)
+        raise ArgumentError, "comparison of %s with %s failed" %
+          [@elements.at(m).class, value.class]
       end
     end
 
@@ -1200,15 +1202,27 @@ class TC_SortedSet < Test::Unit::TestCase
       set.add('4')
     end
 
-    assert_match "comparison of Fixnum with String failed", e.message
+    assert_equal "comparison of Fixnum with String failed", e.message
 
     e = assert_raises(ArgumentError) do
       set.add(nil)
     end
   
-    # couldn't get this to work :(
-    #assert_equal "comparison of Fixnum with nil failed", e.message
-    assert_equal "comparison of Fixnum with NilClass failed", e.message
+    assert_equal "comparison of Fixnum with nil failed", e.message
+
+    set2 = SortedSet['a', 'c', 'e']
+    
+    e = assert_raises(ArgumentError) do
+      set2.add(4)
+    end
+
+    assert_equal "comparison of String with 4 failed", e.message 
+
+    e = assert_raises(ArgumentError) do
+      set2.add(nil)
+    end
+
+    assert_equal "comparison of String with nil failed", e.message
   end
 
   def test_sortedset
